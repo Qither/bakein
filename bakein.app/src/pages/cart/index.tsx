@@ -1,61 +1,71 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { AppShell, BottomActionBar } from '../../components'
-import { cartItems } from '../../data/mock'
+import { api, type Cart as CartData } from '../../services/api'
 
 function Cart() {
-  const [selectedIds, setSelectedIds] = useState(cartItems.map((item) => item.id))
-  const [quantities, setQuantities] = useState<Record<string, number>>(
-    cartItems.reduce((result, item) => ({ ...result, [item.id]: item.qty }), {}),
-  )
+  const [cart, setCart] = useState<CartData>()
+  const [submitting, setSubmitting] = useState(false)
 
-  const total = useMemo(
-    () =>
-      cartItems.reduce((sum, item) => {
-        if (!selectedIds.includes(item.id)) return sum
-        return sum + item.price * (quantities[item.id] || 1)
-      }, 0),
-    [quantities, selectedIds],
-  )
-
-  const toggle = (id: string) => {
-    setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  const loadCart = () => {
+    api.getCart().then(setCart)
   }
 
-  const changeQty = (id: string, delta: number) => {
-    setQuantities((current) => ({ ...current, [id]: Math.max(1, (current[id] || 1) + delta) }))
+  useEffect(() => {
+    loadCart()
+  }, [])
+
+  const toggle = async (id: string, selected: boolean) => {
+    setCart(await api.updateCartItem(id, { selected: !selected }))
+  }
+
+  const changeQty = async (id: string, quantity: number, delta: number) => {
+    setCart(await api.updateCartItem(id, { quantity: Math.max(1, quantity + delta) }))
+  }
+
+  const checkout = async () => {
+    if (!cart?.items.some((item) => item.selected) || submitting) return
+    setSubmitting(true)
+    try {
+      const order = await api.checkout()
+      Taro.showToast({ title: `订单 ${order.orderNo}`, icon: 'success' })
+      loadCart()
+    } catch {
+      Taro.showToast({ title: '结算失败', icon: 'none' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
-    <AppShell title='购物车 / 结算' subtitle='课程和材料包可以一起检查后结算' withAction>
-      {cartItems.map((item) => {
-        const selected = selectedIds.includes(item.id)
-        const qty = quantities[item.id] || 1
-        return (
-          <View key={item.id} className='course-card course-card--list'>
-            <View className={selected ? 'step-item__check step-item__check--done' : 'step-item__check'} onClick={() => toggle(item.id)} />
-            <View className='course-card__body'>
-              <Text className='course-card__title'>{item.name}</Text>
-              <View className='page-subtitle'>
-                {item.type} · ¥{item.price}
+    <AppShell title='购物车 / 结算' subtitle='课程和材料包可一起结算' withAction>
+      {!cart ? <View className='panel page-subtitle'>加载中...</View> : null}
+      {cart && cart.items.length === 0 ? <View className='panel page-subtitle'>购物车为空</View> : null}
+
+      {(cart?.items || []).map((item) => (
+        <View key={item.id} className='course-card course-card--list'>
+          <View className={item.selected ? 'step-item__check step-item__check--done' : 'step-item__check'} onClick={() => toggle(item.id, item.selected)} />
+          <View className='course-card__body'>
+            <Text className='course-card__title'>{item.name}</Text>
+            <View className='page-subtitle'>
+              {item.itemType} · {item.unitPrice}
+            </View>
+            <View className='course-card__footer'>
+              <View className='chip-row'>
+                <Text className='chip' onClick={() => changeQty(item.id, item.quantity, -1)}>
+                  -
+                </Text>
+                <Text className='chip chip--accent'>{item.quantity}</Text>
+                <Text className='chip' onClick={() => changeQty(item.id, item.quantity, 1)}>
+                  +
+                </Text>
               </View>
-              <View className='course-card__footer'>
-                <View className='chip-row'>
-                  <Text className='chip' onClick={() => changeQty(item.id, -1)}>
-                    -
-                  </Text>
-                  <Text className='chip chip--accent'>{qty}</Text>
-                  <Text className='chip' onClick={() => changeQty(item.id, 1)}>
-                    +
-                  </Text>
-                </View>
-                <Text className='price-tag'>¥{item.price * qty}</Text>
-              </View>
+              <Text className='price-tag'>{item.lineTotal}</Text>
             </View>
           </View>
-        )
-      })}
+        </View>
+      ))}
 
       <View className='panel'>
         <View className='menu-row'>
@@ -70,9 +80,9 @@ function Cart() {
 
       <BottomActionBar
         label='已选合计'
-        value={`¥${total}`}
-        primaryText='去结算'
-        onPrimary={() => Taro.showToast({ title: '结算入口待接入', icon: 'none' })}
+        value={cart?.total || '¥0'}
+        primaryText={submitting ? '结算中' : '去结算'}
+        onPrimary={checkout}
       />
     </AppShell>
   )

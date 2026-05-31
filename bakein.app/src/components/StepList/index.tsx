@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import type { CourseStep } from '../../data/mock'
+import type { CourseStep } from '../../services/api'
 
 type StepListProps = {
   steps: CourseStep[]
@@ -22,7 +22,7 @@ export function StepList({ steps, doneIds, onToggle }: StepListProps) {
               <Text className='step-item__title'>
                 {step.title} · {step.time}
               </Text>
-              <View className='step-item__desc'>{step.desc}</View>
+              <View className='step-item__desc'>{step.description}</View>
             </View>
           </View>
         )

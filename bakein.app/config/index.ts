@@ -3,6 +3,7 @@ import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import devConfig from './dev'
 import prodConfig from './prod'
 import vitePluginImp from 'vite-plugin-imp'
+const apiBaseUrl = process.env.TARO_APP_API_BASE_URL || 'http://localhost:5164'
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig<'vite'>(async (merge, { command, mode }) => {
   const baseConfig: UserConfigExport<'vite'> = {
@@ -19,6 +20,7 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
     outputRoot: 'dist',
     plugins: ['@tarojs/plugin-html'],
     defineConstants: {
+      __API_BASE_URL__: JSON.stringify(apiBaseUrl),
     },
     copy: {
       patterns: [

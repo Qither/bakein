@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import type { Course } from '../../data/mock'
+import type { Course } from '../../services/api'
 import { PriceTag } from '../PriceTag'
 
 type CourseCardProps = {
