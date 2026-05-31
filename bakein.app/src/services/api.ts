@@ -139,6 +139,12 @@ export type Cart = {
   total: string
 }
 
+export const CART_UPDATED_EVENT = 'bakein:cart-updated'
+
+function notifyCartUpdated(cart?: Cart) {
+  Taro.eventCenter.trigger(CART_UPDATED_EVENT, cart)
+}
+
 export type Order = {
   id: string
   orderNo: string
@@ -233,11 +239,25 @@ export const api = {
     request<CommunityPost>('/api/community/posts', { method: 'POST', data, auth: true }),
   getProfile: () => request<Profile>('/api/users/me/profile', { auth: true }),
   getCart: () => request<Cart>('/api/users/me/cart', { auth: true }),
-  addCartItem: (data: { itemType: string; skuId: string; quantity?: number; selected?: boolean }) =>
-    request<Cart>('/api/users/me/cart/items', { method: 'PUT', data, auth: true }),
-  updateCartItem: (id: string, data: { quantity?: number; selected?: boolean }) =>
-    request<Cart>(`/api/users/me/cart/items/${encodeURIComponent(id)}`, { method: 'PATCH', data, auth: true }),
-  checkout: () => request<Order>('/api/users/me/cart/checkout', { method: 'POST', auth: true }),
+  addCartItem: async (data: { itemType: string; skuId: string; quantity?: number; selected?: boolean }) => {
+    const cart = await request<Cart>('/api/users/me/cart/items', { method: 'PUT', data, auth: true })
+    notifyCartUpdated(cart)
+    return cart
+  },
+  updateCartItem: async (id: string, data: { quantity?: number; selected?: boolean }) => {
+    const cart = await request<Cart>(`/api/users/me/cart/items/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      data,
+      auth: true,
+    })
+    notifyCartUpdated(cart)
+    return cart
+  },
+  checkout: async () => {
+    const order = await request<Order>('/api/users/me/cart/checkout', { method: 'POST', auth: true })
+    notifyCartUpdated()
+    return order
+  },
   getProgress: (courseId: string) =>
     request<LearningProgress[]>(withQuery('/api/users/me/progress', { courseId }), { auth: true }),
   updateProgress: (data: { courseId: string; stepId: string; completed: boolean }) =>

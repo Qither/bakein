@@ -1,5 +1,6 @@
-import { View, Text } from '@tarojs/components'
+import { Image, View, Text } from '@tarojs/components'
 import type { CourseStep } from '../../services/api'
+import checkIcon from '../../assets/icons/check.svg'
 
 type StepListProps = {
   steps: CourseStep[]
@@ -17,7 +18,9 @@ export function StepList({ steps, doneIds, onToggle }: StepListProps) {
         const active = step.id === firstOpen
         return (
           <View key={step.id} className={active ? 'step-item step-item--active' : 'step-item'} onClick={() => onToggle(step.id)}>
-            <View className={done ? 'step-item__check step-item__check--done' : 'step-item__check'} />
+            <View className={done ? 'step-item__check step-item__check--done' : 'step-item__check'}>
+              {done ? <Image className='step-item__check-icon' src={checkIcon} mode='aspectFit' /> : null}
+            </View>
             <View>
               <Text className='step-item__title'>
                 {step.title} · {step.time}

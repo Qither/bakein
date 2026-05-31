@@ -1,4 +1,5 @@
-import { View, Text } from '@tarojs/components'
+import { Image, View, Text } from '@tarojs/components'
+import searchIcon from '../../assets/icons/magnifying-glass.svg'
 
 type SearchBarProps = {
   text: string
@@ -8,7 +9,7 @@ type SearchBarProps = {
 export function SearchBar({ text, onClick }: SearchBarProps) {
   return (
     <View className='search-bar' onClick={onClick}>
-      <View className='search-bar__icon' />
+      <Image className='search-bar__icon' src={searchIcon} mode='aspectFit' />
       <Text>{text}</Text>
     </View>
   )

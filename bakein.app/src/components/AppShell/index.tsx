@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { View } from '@tarojs/components'
+import { FloatingCart } from '../FloatingCart'
 
 type AppShellProps = {
   title?: string
@@ -14,6 +15,7 @@ export function AppShell({ title, subtitle, withAction, children }: AppShellProp
       {title ? <View className='page-title'>{title}</View> : null}
       {subtitle ? <View className='page-subtitle'>{subtitle}</View> : null}
       {children}
+      <FloatingCart />
     </View>
   )
 }

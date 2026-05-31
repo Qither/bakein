@@ -83,23 +83,10 @@ page {
 }
 
 .search-bar__icon {
-  width: 13px;
-  height: 13px;
-  border: 2px solid $ink-3;
-  border-radius: 50%;
-  position: relative;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
-}
-
-.search-bar__icon::after {
-  content: '';
-  position: absolute;
-  right: -5px;
-  bottom: -3px;
-  width: 7px;
-  height: 2px;
-  background: $ink-3;
-  transform: rotate(45deg);
+  display: block;
 }
 
 .image-placeholder {
@@ -172,6 +159,12 @@ page {
   background: $screen-2;
   color: $accent-line;
   font-weight: 700;
+}
+
+.category-grid__image {
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 
 .course-rail {
@@ -300,6 +293,81 @@ page {
   font-weight: 800;
 }
 
+.floating-cart {
+  position: fixed;
+  right: 16px;
+  bottom: calc(62px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid $accent-line;
+  border-radius: 50%;
+  background: $screen;
+  box-shadow: 0 10px 22px rgba(60, 58, 49, 0.16);
+  color: $accent-line;
+}
+
+.floating-cart--active {
+  animation: floating-cart-shake 1.8s ease-in-out infinite;
+}
+
+.floating-cart--pressed {
+  background: $accent-soft;
+}
+
+.floating-cart__icon {
+  width: 31px;
+  height: 31px;
+}
+
+.floating-cart__badge {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 2px solid $screen;
+  border-radius: 12px;
+  background: $ink-3;
+  color: #fff;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.floating-cart__badge--active {
+  background: $accent-line;
+}
+
+@keyframes floating-cart-shake {
+  0%,
+  64%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  70% {
+    transform: translate3d(-2px, 0, 0) rotate(-5deg);
+  }
+
+  76% {
+    transform: translate3d(2px, 0, 0) rotate(5deg);
+  }
+
+  82% {
+    transform: translate3d(-1px, 0, 0) rotate(-3deg);
+  }
+
+  88% {
+    transform: translate3d(1px, 0, 0) rotate(3deg);
+  }
+}
+
 .action-button {
   min-height: 38px;
   padding: 0 16px;
@@ -340,6 +408,9 @@ page {
 }
 
 .step-item__check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 18px;
   height: 18px;
   border: 1px solid $line-muted;
@@ -350,6 +421,12 @@ page {
 .step-item__check--done {
   border-color: $accent-line;
   background: $accent;
+}
+
+.step-item__check-icon {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 .step-item__title {

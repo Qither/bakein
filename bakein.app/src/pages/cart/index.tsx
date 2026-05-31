@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { View, Text } from '@tarojs/components'
+import { Image, View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { AppShell, BottomActionBar } from '../../components'
 import { api, type Cart as CartData } from '../../services/api'
+import checkIcon from '../../assets/icons/check.svg'
 
 function Cart() {
   const [cart, setCart] = useState<CartData>()
@@ -45,7 +46,9 @@ function Cart() {
 
       {(cart?.items || []).map((item) => (
         <View key={item.id} className='course-card course-card--list'>
-          <View className={item.selected ? 'step-item__check step-item__check--done' : 'step-item__check'} onClick={() => toggle(item.id, item.selected)} />
+          <View className={item.selected ? 'step-item__check step-item__check--done' : 'step-item__check'} onClick={() => toggle(item.id, item.selected)}>
+            {item.selected ? <Image className='step-item__check-icon' src={checkIcon} mode='aspectFit' /> : null}
+          </View>
           <View className='course-card__body'>
             <Text className='course-card__title'>{item.name}</Text>
             <View className='page-subtitle'>
