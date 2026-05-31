@@ -1,0 +1,14 @@
+# bakein.app dependencies and generated output
+/bakein.app/node_modules/
+/bakein.app/dist/
+/bakein.app/.swc/
+/bakein.app/.temp/
+/bakein.app/.rn_temp/
+/bakein.app/deploy_versions/
+/bakein.app/graphify-out/
+
+# Common frontend caches and reports if they are added later
+/bakein.app/.cache/
+/bakein.app/.turbo/
+/bakein.app/coverage/
+/bakein.app/build/

@@ -1,0 +1,11 @@
+@bakein.api_HostAddress = http://localhost:5164
+
+GET {{bakein.api_HostAddress}}/todos/
+Accept: application/json
+
+###
+
+GET {{bakein.api_HostAddress}}/todos/1
+Accept: application/json
+
+###
