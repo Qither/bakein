@@ -31,6 +31,9 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bakein};Username=${POSTGRES_USER:-bakein};Password=${POSTGRES_PASSWORD:-bakein_dev_password}
       Database__Initialize: ${DATABASE_INITIALIZE:-true}
+      Database__SeedDemoData: ${DATABASE_SEED_DEMO_DATA:-true}
+      Media__Provider: ${MEDIA_PROVIDER:-local}
+      Payment__Provider: ${PAYMENT_PROVIDER:-local}
       Cors__AllowedOrigins__0: ${CORS_ORIGIN_0:-http://localhost:10086}
       Cors__AllowedOrigins__1: ${CORS_ORIGIN_1:-http://localhost:5173}
     ports:

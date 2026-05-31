@@ -97,3 +97,95 @@ public sealed record OrderDto(Guid Id, string OrderNo, string Status, int TotalC
 public sealed record LearningProgressDto(string CourseId, IReadOnlyList<string> CompletedStepIds, int CompletedSteps, int TotalSteps);
 
 public sealed record ProgressUpdateRequest(string CourseId, string StepId, bool Completed = true);
+
+public sealed record MediaUploadIntentRequest(string FileName, string ContentType, string MediaType = "image");
+
+public sealed record MediaUploadIntentDto(
+    Guid MediaAssetId,
+    Guid UploadIntentId,
+    string Provider,
+    string ProviderFileId,
+    string UploadUrl,
+    string? PlaybackUrl,
+    DateTimeOffset ExpiresAt,
+    string Status);
+
+public sealed record LocalMediaCallbackRequest(
+    Guid MediaAssetId,
+    string EventType = "upload_completed",
+    string Suggestion = "pass",
+    string? ProviderEventId = null,
+    string? ProviderFileId = null);
+
+public sealed record MediaCallbackResultDto(Guid MediaAssetId, string Status, string Suggestion, bool Duplicate);
+
+public sealed record PaymentIntentRequest(Guid OrderId);
+
+public sealed record PaymentIntentDto(
+    Guid Id,
+    Guid OrderId,
+    string Provider,
+    string ProviderIntentId,
+    int AmountCents,
+    string Currency,
+    string Status,
+    string ClientSecret,
+    DateTimeOffset ExpiresAt);
+
+public sealed record LocalPaymentCallbackRequest(
+    Guid PaymentIntentId,
+    string Status = "succeeded",
+    string? ProviderEventId = null);
+
+public sealed record PaymentCallbackResultDto(Guid PaymentIntentId, Guid OrderId, string PaymentStatus, string OrderStatus, bool Duplicate);
+
+public sealed record CommunityCheckInRequest(string? CourseId, string? StepId, Guid? MediaAssetId, string Text);
+
+public sealed record CommunityCommentRequest(string Text);
+
+public sealed record CommunityCommentDto(Guid Id, Guid PostId, string Author, string Text, DateTimeOffset CreatedAt);
+
+public sealed record CommunityReportRequest(string Reason);
+
+public sealed record ProfileAddressRequest(
+    string ContactName,
+    string Phone,
+    string Province,
+    string City,
+    string District,
+    string Detail,
+    bool IsDefault = false);
+
+public sealed record ProfileAddressDto(
+    Guid Id,
+    string ContactName,
+    string Phone,
+    string Province,
+    string City,
+    string District,
+    string Detail,
+    bool IsDefault);
+
+public sealed record AdminCourseVersionRequest(string CourseId, string Title, string Intro, string CoverText, string Teacher);
+
+public sealed record AdminCourseVersionDto(Guid Id, string CourseId, int VersionNo, string Status, string Title, DateTimeOffset CreatedAt);
+
+public sealed record AdminCourseVersionStepRequest(
+    string Title,
+    string Description,
+    int DurationSeconds = 0,
+    int SortOrder = 0,
+    string? SourceStepId = null,
+    Guid? SectionId = null,
+    Guid? MediaAssetId = null);
+
+public sealed record AdminCourseVersionStepDto(
+    Guid Id,
+    Guid VersionId,
+    string? SourceStepId,
+    string Title,
+    string Description,
+    int DurationSeconds,
+    int SortOrder);
+
+public sealed record AdminModerationDecisionRequest(string Resolution);

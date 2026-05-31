@@ -1,19 +1,37 @@
+using Bakein.Api.Infrastructure.Postgres;
 using Bakein.Api.Security;
 using Npgsql;
 
 namespace Bakein.Api.Infrastructure;
 
-public sealed class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<DatabaseInitializer> logger)
+public sealed class DatabaseInitializer(
+    NpgsqlDataSource dataSource,
+    PostgresMigrationRunner migrationRunner,
+    IConfiguration configuration,
+    ILogger<DatabaseInitializer> logger)
 {
     private static readonly Guid DemoAccountId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid DemoAdminAccountId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly IReadOnlyList<PostgresMigration> Migrations =
+    [
+        new("001_baseline_mvp", SchemaSql),
+        .. ProductionCoreMigrations.All,
+    ];
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Initializing Bakein Postgres schema");
+        logger.LogInformation("Initializing Bakein Postgres migrations and dev seed data");
 
-        await dataSource.ExecuteAsync(SchemaSql, cancellationToken: cancellationToken);
-        await SeedCatalogAsync(cancellationToken);
-        await SeedDemoAccountAsync(cancellationToken);
+        await migrationRunner.ApplyAsync(Migrations, cancellationToken);
+        if (configuration.GetValue("Database:SeedDemoData", false))
+        {
+            await SeedCatalogAsync(cancellationToken);
+            await SeedDemoAccountAsync(cancellationToken);
+        }
+        else
+        {
+            logger.LogInformation("Skipping Bakein demo seed data because Database:SeedDemoData is false");
+        }
 
         logger.LogInformation("Bakein Postgres schema is ready");
     }
@@ -127,6 +145,19 @@ public sealed class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<Dat
               display_name = excluded.display_name,
               avatar_text = excluded.avatar_text;
 
+            insert into accounts (id, email, password_hash, display_name, avatar_text, role)
+            values (@admin_account_id, 'admin@bakein.local', @password_hash, 'Bakein Admin', 'Admin', 'admin')
+            on conflict (id) do update set
+              password_hash = excluded.password_hash,
+              display_name = excluded.display_name,
+              avatar_text = excluded.avatar_text,
+              role = excluded.role;
+
+            insert into account_roles (account_id, role) values
+              (@account_id, 'learner'),
+              (@admin_account_id, 'admin')
+            on conflict do nothing;
+
             insert into user_profiles (account_id, learning_days, streak_days)
             values (@account_id, 5, 2)
             on conflict (account_id) do update set
@@ -164,7 +195,11 @@ public sealed class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<Dat
               selected = excluded.selected,
               updated_at = now();
             """,
-            [Pg.Param("account_id", DemoAccountId), Pg.Param("password_hash", passwordHash)],
+            [
+                Pg.Param("account_id", DemoAccountId),
+                Pg.Param("admin_account_id", DemoAdminAccountId),
+                Pg.Param("password_hash", passwordHash),
+            ],
             cancellationToken);
     }
 

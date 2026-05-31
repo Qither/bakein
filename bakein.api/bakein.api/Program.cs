@@ -1,5 +1,7 @@
 using Bakein.Api.Api;
 using Bakein.Api.Infrastructure;
+using Bakein.Api.Infrastructure.Postgres;
+using Bakein.Api.Infrastructure.Providers;
 using Bakein.Api.Security;
 using Npgsql;
 
@@ -31,6 +33,8 @@ builder.Services.AddSingleton(sp =>
     return new NpgsqlDataSourceBuilder(connectionString).Build();
 });
 builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<PostgresMigrationRunner>();
+builder.Services.AddBakeinProviders(builder.Configuration);
 
 var app = builder.Build();
 
@@ -58,6 +62,12 @@ var api = app.MapGroup("/api");
 api.MapAuthEndpoints();
 api.MapCatalogEndpoints();
 api.MapUserEndpoints();
+api.MapProfileEndpoints();
+api.MapMediaEndpoints();
+api.MapCommerceEndpoints();
+api.MapCommunityInteractionEndpoints();
+api.MapAdminEndpoints();
+api.MapOperationsEndpoints();
 
 app.Run();
 

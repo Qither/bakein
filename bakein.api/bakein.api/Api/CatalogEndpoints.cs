@@ -76,7 +76,7 @@ public static class CatalogEndpoints
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            filters.Add("(c.title ilike @search or c.teacher ilike @search or c.intro ilike @search)");
+            filters.Add("(coalesce(cv.title, c.title) ilike @search or coalesce(cv.teacher, c.teacher) ilike @search or coalesce(cv.intro, c.intro) ilike @search)");
             parameters.Add(Pg.Param("search", $"%{search.Trim()}%"));
         }
 
@@ -167,6 +167,7 @@ public static class CatalogEndpoints
                    p.likes_count, p.comments_count, p.created_at
             from community_posts p
             left join courses c on c.id = p.course_id
+            where p.status = 'published'
             order by p.created_at desc
             limit 50
             """,
@@ -214,9 +215,23 @@ public static class CatalogEndpoints
     internal static async Task<IReadOnlyList<CourseStepDto>> LoadStepsAsync(NpgsqlDataSource db, string courseId, CancellationToken cancellationToken) =>
         await db.QueryAsync(
             """
+            with version_steps as (
+              select coalesce(vs.source_step_id, vs.id::text) as id,
+                     vs.title,
+                     vs.description,
+                     vs.duration_seconds,
+                     vs.sort_order
+              from courses c
+              join course_version_steps vs on vs.version_id = c.published_version_id
+              where c.id = @course_id
+            )
+            select id, title, description, duration_seconds, sort_order
+            from version_steps
+            union all
             select id, title, description, duration_seconds, sort_order
             from course_steps
             where course_id = @course_id
+              and not exists (select 1 from version_steps)
             order by sort_order
             """,
             reader => new CourseStepDto(
@@ -262,14 +277,25 @@ public static class CatalogEndpoints
     {
         return await db.QueryAsync(
             $$"""
-            select c.id, c.title, cat.name as category, c.cover_text, c.duration_minutes, c.level,
-                   c.price_cents, c.member_free, c.teacher, c.rating, c.student_count, c.intro,
+            select c.id,
+                   coalesce(cv.title, c.title) as title,
+                   cat.name as category,
+                   coalesce(cv.cover_text, c.cover_text) as cover_text,
+                   c.duration_minutes,
+                   c.level,
+                   c.price_cents,
+                   c.member_free,
+                   coalesce(cv.teacher, c.teacher) as teacher,
+                   c.rating,
+                   c.student_count,
+                   coalesce(cv.intro, c.intro) as intro,
                    coalesce(array_remove(array_agg(t.tag order by t.sort_order), null), array[]::text[]) as tags
             from courses c
             join categories cat on cat.id = c.category_id
+            left join course_versions cv on cv.id = c.published_version_id and cv.status = 'published'
             left join course_tags t on t.course_id = c.id
             {{whereClause}}
-            group by c.id, cat.name
+            group by c.id, cat.name, cv.title, cv.cover_text, cv.teacher, cv.intro
             {{orderClause}}
             """,
             MapCourseCard,

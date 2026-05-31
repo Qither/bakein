@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="bakein.api/bakein.api.csproj" />
+  <Project Path="bakein.api.ContractChecks/bakein.api.ContractChecks.csproj" />
 </Solution>

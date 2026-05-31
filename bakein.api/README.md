@@ -17,6 +17,13 @@ Demo account:
 - Email: `demo@bakein.local`
 - Password: `bakein123`
 
+Demo admin account:
+
+- Email: `admin@bakein.local`
+- Password: `bakein123`
+
+`DATABASE_SEED_DEMO_DATA=true` is intended for local Docker/dev only. Production-style deployments should leave demo seeding disabled and rely on migrations plus explicit content/admin setup.
+
 ## Core Endpoints
 
 - `GET /health`
@@ -41,5 +48,21 @@ Demo account:
 - `GET /api/users/me/orders`
 - `GET /api/users/me/progress?courseId=soft-bread`
 - `PUT /api/users/me/progress`
+- `POST /api/media/upload-intents`
+- `POST /api/media/callbacks/local`
+- `POST /api/payments/intents`
+- `POST /api/payments/callbacks/local`
+- `POST /api/community/check-ins`
+- `POST /api/community/posts/{id}/comments`
+- `POST /api/community/posts/{id}/likes`
+- `POST /api/community/posts/{id}/reports`
+- `GET /api/users/me/addresses`
+- `POST /api/users/me/addresses`
+- `POST /api/admin/courses/versions`
+- `POST /api/admin/courses/versions/{id}/publish`
+- `GET /api/admin/moderation/tasks`
+- `GET /api/admin/audit-logs`
+- `GET /api/operations/readiness`
+- `GET /api/operations/provider-diagnostics`
 
 Authenticated endpoints use `Authorization: Bearer <token>` from login/register.

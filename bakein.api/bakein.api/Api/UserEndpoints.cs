@@ -1,3 +1,4 @@
+using Bakein.Api.Application.Providers;
 using Bakein.Api.Infrastructure;
 using Bakein.Api.Security;
 using Npgsql;
@@ -17,6 +18,7 @@ public static class UserEndpoints
         group.MapDelete("/cart/items/{id:guid}", DeleteCartItemAsync);
         group.MapPost("/cart/checkout", CheckoutAsync);
         group.MapGet("/orders", GetOrdersAsync);
+        group.MapGet("/orders/{id:guid}", GetOrderAsync);
         group.MapGet("/progress", GetProgressAsync);
         group.MapPut("/progress", UpdateProgressAsync);
 
@@ -177,7 +179,11 @@ public static class UserEndpoints
         return Results.Ok(await LoadCartAsync(db, user.Id, cancellationToken));
     }
 
-    private static async Task<IResult> CheckoutAsync(HttpContext httpContext, NpgsqlDataSource db, CancellationToken cancellationToken)
+    private static async Task<IResult> CheckoutAsync(
+        HttpContext httpContext,
+        NpgsqlDataSource db,
+        IPaymentProvider paymentProvider,
+        CancellationToken cancellationToken)
     {
         var user = httpContext.GetAuthenticatedUser();
         if (user is null)
@@ -216,6 +222,10 @@ public static class UserEndpoints
         var orderNo = $"BK{DateTimeOffset.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(1000, 9999)}";
         var totalCents = items.Sum(item => item.LineTotalCents);
         var createdAt = DateTimeOffset.UtcNow;
+        var paymentIntentId = Guid.NewGuid();
+        var providerIntent = await paymentProvider.CreatePaymentIntentAsync(
+            new PaymentIntentCommand(paymentIntentId, orderId, user.Id, totalCents, "CNY"),
+            cancellationToken);
 
         await using (var command = CreateCommand(
             connection,
@@ -254,6 +264,28 @@ public static class UserEndpoints
             await command.ExecuteNonQueryAsync(cancellationToken);
 
             orderItems.Add(new OrderItemDto(orderItemId, item.ItemType, item.SkuId, item.Name, item.UnitPriceCents, item.Quantity, item.LineTotalCents));
+        }
+
+        await using (var command = CreateCommand(
+            connection,
+            transaction,
+            """
+            insert into payment_intents (
+              id, order_id, account_id, provider, provider_intent_id, amount_cents, currency, status, client_secret, expires_at
+            ) values (
+              @id, @order_id, @account_id, @provider, @provider_intent_id, @amount_cents, 'CNY', 'requires_action', @client_secret, @expires_at
+            )
+            """,
+            Pg.Param("id", paymentIntentId),
+            Pg.Param("order_id", orderId),
+            Pg.Param("account_id", user.Id),
+            Pg.Param("provider", providerIntent.Provider),
+            Pg.Param("provider_intent_id", providerIntent.ProviderIntentId),
+            Pg.Param("amount_cents", totalCents),
+            Pg.Param("client_secret", providerIntent.ClientSecret),
+            Pg.Param("expires_at", providerIntent.ExpiresAt)))
+        {
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         await using (var command = CreateCommand(
@@ -305,6 +337,38 @@ public static class UserEndpoints
         return Results.Ok(orders);
     }
 
+    private static async Task<IResult> GetOrderAsync(Guid id, HttpContext httpContext, NpgsqlDataSource db, CancellationToken cancellationToken)
+    {
+        var user = httpContext.GetAuthenticatedUser();
+        if (user is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var row = await db.QuerySingleOrDefaultAsync(
+            """
+            select id, order_no, status, total_cents, created_at
+            from orders
+            where id = @id and account_id = @account_id
+            """,
+            reader => new OrderRow(
+                reader.GetGuid(reader.GetOrdinal("id")),
+                reader.GetString(reader.GetOrdinal("order_no")),
+                reader.GetString(reader.GetOrdinal("status")),
+                reader.GetInt32(reader.GetOrdinal("total_cents")),
+                reader.GetDateTimeOffset("created_at")),
+            [Pg.Param("id", id), Pg.Param("account_id", user.Id)],
+            cancellationToken);
+
+        if (row is null)
+        {
+            return Results.NotFound(new ApiError("order_not_found", "Order was not found."));
+        }
+
+        var items = await LoadOrderItemsAsync(db, row.Id, cancellationToken);
+        return Results.Ok(new OrderDto(row.Id, row.OrderNo, row.Status, row.TotalCents, ApiFormatting.Money(row.TotalCents), row.CreatedAt, items));
+    }
+
     private static async Task<IResult> GetProgressAsync(string? courseId, HttpContext httpContext, NpgsqlDataSource db, CancellationToken cancellationToken)
     {
         var user = httpContext.GetAuthenticatedUser();
@@ -330,7 +394,27 @@ public static class UserEndpoints
         }
 
         var stepExists = await db.QuerySingleOrDefaultAsync(
-            "select id from course_steps where id = @step_id and course_id = @course_id",
+            """
+            with version_steps as (
+              select coalesce(vs.source_step_id, vs.id::text) as step_id
+              from courses c
+              join course_version_steps vs on vs.version_id = c.published_version_id
+              where c.id = @course_id
+            ),
+            visible_steps as (
+              select step_id
+              from version_steps
+              union all
+              select cs.id
+              from course_steps cs
+              where cs.course_id = @course_id
+                and not exists (select 1 from version_steps)
+            )
+            select step_id
+            from visible_steps
+            where step_id = @step_id
+            limit 1
+            """,
             reader => reader.GetString(0),
             [Pg.Param("course_id", request.CourseId), Pg.Param("step_id", request.StepId)],
             cancellationToken);
@@ -464,17 +548,39 @@ public static class UserEndpoints
         CancellationToken cancellationToken) =>
         await db.QueryAsync(
             """
+            with course_scope as (
+              select id, sort_order, published_version_id
+              from courses
+              where (@course_id::text is null or id = @course_id)
+            ),
+            visible_steps as (
+              select c.id as course_id,
+                     coalesce(vs.source_step_id, vs.id::text) as step_id,
+                     vs.sort_order
+              from course_scope c
+              join course_version_steps vs on vs.version_id = c.published_version_id
+              union all
+              select c.id as course_id,
+                     cs.id as step_id,
+                     cs.sort_order
+              from course_scope c
+              join course_steps cs on cs.course_id = c.id
+              where not exists (
+                select 1
+                from course_version_steps vs
+                where vs.version_id = c.published_version_id
+              )
+            )
             select c.id as course_id,
-                   coalesce(array_agg(lp.step_id order by cs.sort_order) filter (where lp.step_id is not null), array[]::text[]) as completed_step_ids,
-                   count(cs.id)::int as total_steps
-            from courses c
-            join course_steps cs on cs.course_id = c.id
+                   coalesce(array_agg(lp.step_id order by vs.sort_order) filter (where lp.step_id is not null), array[]::text[]) as completed_step_ids,
+                   count(vs.step_id)::int as total_steps
+            from course_scope c
+            join visible_steps vs on vs.course_id = c.id
             left join learning_progress lp
-              on lp.course_id = c.id
-             and lp.step_id = cs.id
+              on lp.course_id = vs.course_id
+             and lp.step_id = vs.step_id
              and lp.account_id = @account_id
-            where (@course_id::text is null or c.id = @course_id)
-            group by c.id
+            group by c.id, c.sort_order
             order by c.sort_order
             """,
             reader =>
