@@ -1,11 +1,32 @@
 @bakein.api_HostAddress = http://localhost:5164
+@token = replace-with-login-token
 
-GET {{bakein.api_HostAddress}}/todos/
+GET {{bakein.api_HostAddress}}/health
 Accept: application/json
 
 ###
 
-GET {{bakein.api_HostAddress}}/todos/1
+GET {{bakein.api_HostAddress}}/api/catalog/home
 Accept: application/json
 
 ###
+
+POST {{bakein.api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@bakein.local",
+  "password": "bakein123"
+}
+
+###
+
+GET {{bakein.api_HostAddress}}/api/auth/me
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+GET {{bakein.api_HostAddress}}/api/users/me/cart
+Authorization: Bearer {{token}}
+Accept: application/json

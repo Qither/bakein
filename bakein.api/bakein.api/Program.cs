@@ -1,15 +1,36 @@
-using Microsoft.AspNetCore.Http.HttpResults;
-using System.Text.Json.Serialization;
+using Bakein.Api.Api;
+using Bakein.Api.Infrastructure;
+using Bakein.Api.Security;
+using Npgsql;
 
-var builder = WebApplication.CreateSlimBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureHttpJsonOptions(options =>
+builder.Services.AddOpenApi();
+builder.Services.AddCors(options =>
 {
-    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+    options.AddPolicy("Frontend", policy =>
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        if (origins.Length == 0)
+        {
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+            return;
+        }
+
+        policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+    });
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddSingleton(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("Default")
+        ?? configuration["POSTGRES_CONNECTION_STRING"]
+        ?? throw new InvalidOperationException("Missing Postgres connection string. Set ConnectionStrings:Default or POSTGRES_CONNECTION_STRING.");
+
+    return new NpgsqlDataSourceBuilder(connectionString).Build();
+});
+builder.Services.AddSingleton<DatabaseInitializer>();
 
 var app = builder.Build();
 
@@ -18,31 +39,26 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-Todo[] sampleTodos =
-[
-    new(1, "Walk the dog"),
-    new(2, "Do the dishes", DateOnly.FromDateTime(DateTime.Now)),
-    new(3, "Do the laundry", DateOnly.FromDateTime(DateTime.Now.AddDays(1))),
-    new(4, "Clean the bathroom"),
-    new(5, "Clean the car", DateOnly.FromDateTime(DateTime.Now.AddDays(2)))
-];
+app.UseCors("Frontend");
+app.UseSessionAuthentication();
 
-var todosApi = app.MapGroup("/todos");
-todosApi.MapGet("/", () => sampleTodos)
-        .WithName("GetTodos");
+if (app.Configuration.GetValue("Database:Initialize", true))
+{
+    await app.Services.GetRequiredService<DatabaseInitializer>().InitializeAsync();
+}
 
-todosApi.MapGet("/{id}", Results<Ok<Todo>, NotFound> (int id) =>
-    sampleTodos.FirstOrDefault(a => a.Id == id) is { } todo
-        ? TypedResults.Ok(todo)
-        : TypedResults.NotFound())
-    .WithName("GetTodoById");
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    service = "bakein.api",
+    utc = DateTimeOffset.UtcNow,
+}));
+
+var api = app.MapGroup("/api");
+api.MapAuthEndpoints();
+api.MapCatalogEndpoints();
+api.MapUserEndpoints();
 
 app.Run();
 
-public record Todo(int Id, string? Title, DateOnly? DueBy = null, bool IsComplete = false);
-
-[JsonSerializable(typeof(Todo[]))]
-internal partial class AppJsonSerializerContext : JsonSerializerContext
-{
-
-}
+public partial class Program;

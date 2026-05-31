@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bakein-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bakein}
+      POSTGRES_USER: ${POSTGRES_USER:-bakein}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bakein_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - bakein-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-bakein} -d $${POSTGRES_DB:-bakein}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: bakein.api/Dockerfile
+    container_name: bakein-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-bakein};Username=${POSTGRES_USER:-bakein};Password=${POSTGRES_PASSWORD:-bakein_dev_password}
+      Database__Initialize: ${DATABASE_INITIALIZE:-true}
+      Cors__AllowedOrigins__0: ${CORS_ORIGIN_0:-http://localhost:10086}
+      Cors__AllowedOrigins__1: ${CORS_ORIGIN_1:-http://localhost:5173}
+    ports:
+      - "${API_PORT:-5164}:8080"
+
+volumes:
+  bakein-postgres-data:
