@@ -6,9 +6,15 @@ public sealed record RegisterRequest(string Email, string Password, string Displ
 
 public sealed record LoginRequest(string Email, string Password);
 
+public sealed record WechatRegisterRequest(string Code, WechatRegisterProfileRequest Profile);
+
+public sealed record WechatRegisterProfileRequest(string NickName, string? AvatarUrl);
+
 public sealed record AuthResponse(string Token, DateTimeOffset ExpiresAt, AccountDto Account);
 
 public sealed record AccountDto(Guid Id, string Email, string DisplayName, string Role, DateTimeOffset CreatedAt);
+
+public sealed record ExternalIdentityDto(string Provider, string DisplayName, string? AvatarUrl, DateTimeOffset UpdatedAt);
 
 public sealed record CategoryDto(string Id, string Name, int SortOrder);
 
@@ -70,7 +76,8 @@ public sealed record ProfileDto(
     int StreakDays,
     int PurchasedCourses,
     int CompletedSteps,
-    int CheckInCount);
+    int CheckInCount,
+    ExternalIdentityDto? WechatIdentity);
 
 public sealed record CartItemDto(
     Guid Id,

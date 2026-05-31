@@ -12,7 +12,11 @@ type RequestOptions = {
   method?: HttpMethod
   data?: unknown
   auth?: boolean
-  retryAuth?: boolean
+}
+
+type ApiErrorPayload = {
+  code?: string
+  message?: string
 }
 
 export type Category = {
@@ -110,6 +114,13 @@ export type Account = {
   createdAt: string
 }
 
+export type ExternalIdentity = {
+  provider: string
+  displayName: string
+  avatarUrl?: string | null
+  updatedAt: string
+}
+
 export type Profile = {
   account: Account
   membershipStatus: string
@@ -118,6 +129,7 @@ export type Profile = {
   purchasedCourses: number
   completedSteps: number
   checkInCount: number
+  wechatIdentity?: ExternalIdentity | null
 }
 
 export type CartItem = {
@@ -167,6 +179,38 @@ type AuthResponse = {
   account: Account
 }
 
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('AUTH_REQUIRED')
+    this.name = 'AuthRequiredError'
+  }
+}
+
+export class ApiRequestError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly path: string,
+    public readonly code?: string,
+    message?: string,
+  ) {
+    super(message || `API ${statusCode}: ${path}`)
+    this.name = 'ApiRequestError'
+  }
+}
+
+function readAuthToken() {
+  const token = Taro.getStorageSync<string>(AUTH_TOKEN_KEY)
+  return typeof token === 'string' ? token : ''
+}
+
+function saveAuthToken(token: string) {
+  Taro.setStorageSync(AUTH_TOKEN_KEY, token)
+}
+
+function clearAuthToken() {
+  Taro.removeStorageSync(AUTH_TOKEN_KEY)
+}
+
 function buildUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
 }
@@ -180,6 +224,26 @@ function withQuery(path: string, params: Record<string, string | boolean | undef
   return query ? `${path}?${query}` : path
 }
 
+function readApiErrorPayload(data: unknown): ApiErrorPayload {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data) as ApiErrorPayload
+    } catch {
+      return { message: data }
+    }
+  }
+
+  if (data && typeof data === 'object') {
+    const payload = data as Record<string, unknown>
+    return {
+      code: typeof payload.code === 'string' ? payload.code : undefined,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    }
+  }
+
+  return {}
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const header: Record<string, string> = {}
   if (options.data !== undefined) {
@@ -187,7 +251,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (options.auth) {
-    header.Authorization = `Bearer ${await ensureDemoSession()}`
+    const token = readAuthToken()
+    if (!token) {
+      throw new AuthRequiredError()
+    }
+
+    header.Authorization = `Bearer ${token}`
   }
 
   const response = await Taro.request<T>({
@@ -197,37 +266,41 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     header,
   })
 
-  if (response.statusCode === 401 && options.auth && options.retryAuth !== false) {
-    Taro.removeStorageSync(AUTH_TOKEN_KEY)
-    return request<T>(path, { ...options, retryAuth: false })
+  if (response.statusCode === 401 && options.auth) {
+    clearAuthToken()
+    throw new AuthRequiredError()
   }
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new Error(`API ${response.statusCode}: ${path}`)
+    const payload = readApiErrorPayload(response.data)
+    throw new ApiRequestError(response.statusCode, path, payload.code, payload.message)
   }
 
   return response.data
 }
 
-async function loginDemo() {
-  const response = await request<AuthResponse>('/api/auth/login', {
+async function registerWithWechatProfile(profile: { nickName: string; avatarUrl?: string | null }) {
+  const login = await Taro.login()
+  if (!login.code) {
+    throw new Error('Wechat login did not return a code.')
+  }
+
+  const response = await request<AuthResponse>('/api/auth/wechat/register', {
     method: 'POST',
     data: {
-      email: 'demo@bakein.local',
-      password: 'bakein123',
+      code: login.code,
+      profile,
     },
   })
 
-  Taro.setStorageSync(AUTH_TOKEN_KEY, response.token)
-  return response.token
-}
-
-async function ensureDemoSession() {
-  const token = Taro.getStorageSync<string>(AUTH_TOKEN_KEY)
-  return token || loginDemo()
+  saveAuthToken(response.token)
+  return response
 }
 
 export const api = {
+  isAuthenticated: () => Boolean(readAuthToken()),
+  clearAuth: clearAuthToken,
+  registerWithWechatProfile,
   getHomeFeed: () => request<HomeFeed>('/api/catalog/home'),
   getCategories: () => request<Category[]>('/api/catalog/categories'),
   getCourses: (params: { category?: string; memberFree?: boolean; search?: string } = {}) =>

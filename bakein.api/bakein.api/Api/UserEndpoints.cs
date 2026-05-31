@@ -36,6 +36,10 @@ public static class UserEndpoints
         var profile = await db.QuerySingleOrDefaultAsync(
             """
             select a.id, a.email, a.display_name, a.role, a.created_at,
+                   ei.provider as wechat_provider,
+                   ei.display_name as wechat_display_name,
+                   ei.avatar_url as wechat_avatar_url,
+                   ei.updated_at as wechat_updated_at,
                    coalesce(m.status, 'none') as membership_status,
                    coalesce(p.learning_days, 0) as learning_days,
                    coalesce(p.streak_days, 0) as streak_days,
@@ -64,6 +68,13 @@ public static class UserEndpoints
               order by ends_at desc
               limit 1
             ) m on true
+            left join lateral (
+              select provider, display_name, avatar_url, updated_at
+              from account_external_identities
+              where account_id = a.id and provider = 'wechat'
+              order by updated_at desc
+              limit 1
+            ) ei on true
             where a.id = @account_id
             """,
             reader => new ProfileDto(
@@ -73,11 +84,24 @@ public static class UserEndpoints
                 reader.GetInt32(reader.GetOrdinal("streak_days")),
                 reader.GetInt32(reader.GetOrdinal("purchased_courses")),
                 reader.GetInt32(reader.GetOrdinal("completed_steps")),
-                reader.GetInt32(reader.GetOrdinal("check_in_count"))),
+                reader.GetInt32(reader.GetOrdinal("check_in_count")),
+                MapExternalIdentity(reader, "wechat")),
             [Pg.Param("account_id", user.Id)],
             cancellationToken);
 
         return profile is null ? Results.Unauthorized() : Results.Ok(profile);
+    }
+
+    private static ExternalIdentityDto? MapExternalIdentity(NpgsqlDataReader reader, string alias)
+    {
+        var provider = reader.GetNullableString($"{alias}_provider");
+        return provider is null
+            ? null
+            : new ExternalIdentityDto(
+                provider,
+                reader.GetString(reader.GetOrdinal($"{alias}_display_name")),
+                reader.GetNullableString($"{alias}_avatar_url"),
+                reader.GetDateTimeOffset($"{alias}_updated_at"));
     }
 
     private static async Task<IResult> GetCartAsync(HttpContext httpContext, NpgsqlDataSource db, CancellationToken cancellationToken)

@@ -1,6 +1,7 @@
 using Bakein.Api.Application.Providers;
 using Bakein.Api.Infrastructure.Providers.Local;
 using Bakein.Api.Infrastructure.Providers.TencentVod;
+using Bakein.Api.Infrastructure.Providers.WeChat;
 
 namespace Bakein.Api.Infrastructure.Providers;
 
@@ -16,8 +17,15 @@ public static class ProviderRegistration
 
         RegisterMediaProvider(services, configuration, mediaProvider);
         RegisterPaymentProvider(services, paymentProvider);
+        RegisterExternalIdentityProviders(services);
 
         return services;
+    }
+
+    private static void RegisterExternalIdentityProviders(IServiceCollection services)
+    {
+        services.AddSingleton<HttpClient>();
+        services.AddSingleton<IWechatIdentityProvider, WechatIdentityProvider>();
     }
 
     private static void RegisterMediaProvider(IServiceCollection services, IConfiguration configuration, string provider)

@@ -28,6 +28,7 @@ Demo admin account:
 
 - `GET /health`
 - `POST /api/auth/register`
+- `POST /api/auth/wechat/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
@@ -66,3 +67,18 @@ Demo admin account:
 - `GET /api/operations/provider-diagnostics`
 
 Authenticated endpoints use `Authorization: Bearer <token>` from login/register.
+
+## WeChat Registration
+
+Configure `WECHAT_APP_ID` and `WECHAT_APP_SECRET` so `POST /api/auth/wechat/register` can exchange the app `wx.login` code through WeChat `jscode2session`.
+For local non-WeChat smoke testing only, set `WECHAT_USE_MOCK_SESSION=true`; leave it `false` for real app registration.
+
+PowerShell mock smoke:
+
+```powershell
+$env:WECHAT_USE_MOCK_SESSION='true'
+docker compose up -d api
+cd ..\bakein.app
+$env:WECHAT_SMOKE='true'
+npm run test:api
+```

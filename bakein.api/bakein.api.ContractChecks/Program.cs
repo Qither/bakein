@@ -12,6 +12,7 @@ var checks = new List<ContractCheck>
     SourceContains("Program.cs", "MapUserEndpoints", "user endpoint group remains composed"),
 
     SourceContains("Api/AuthEndpoints.cs", "MapPost(\"/register\"", "auth register route remains mapped"),
+    SourceContains("Api/AuthEndpoints.cs", "MapPost(\"/wechat/register\"", "WeChat register route remains mapped"),
     SourceContains("Api/AuthEndpoints.cs", "MapPost(\"/login\"", "auth login route remains mapped"),
     SourceContains("Api/AuthEndpoints.cs", "MapGet(\"/me\"", "auth me route remains mapped"),
     SourceContains("Api/AuthEndpoints.cs", "MapPost(\"/logout\"", "auth logout route remains mapped"),
@@ -43,6 +44,8 @@ var checks = new List<ContractCheck>
     SourceContains("Api/Dtos.cs", "record CartDto", "cart DTO remains declared"),
     SourceContains("Api/Dtos.cs", "record OrderDto", "order DTO remains declared"),
     SourceContains("Api/Dtos.cs", "record LearningProgressDto", "learning progress DTO remains declared"),
+    SourceContains("Api/Dtos.cs", "record WechatRegisterRequest", "WeChat register request DTO remains declared"),
+    SourceContains("Api/Dtos.cs", "record ExternalIdentityDto", "external identity DTO remains declared"),
 
     SourceContains("Infrastructure/Postgres/PostgresMigrationRunner.cs", "schema_migrations", "migration ledger table remains defined"),
     SourceContains("Infrastructure/Postgres/PostgresMigrationRunner.cs", "checksum drift", "migration checksum drift remains a startup failure"),
@@ -80,11 +83,15 @@ var checks = new List<ContractCheck>
     SourceContains("Api/CatalogEndpoints.cs", "course_version_steps", "course steps read published version steps"),
     SourceContains("Api/UserEndpoints.cs", "visible_steps", "learning progress uses app-visible steps"),
     SourceContains("Infrastructure/Postgres/ProductionCoreMigrations.cs", "009_learning_progress_version_steps", "learning progress migration supports version-only steps"),
+    SourceContains("Infrastructure/Postgres/ProductionCoreMigrations.cs", "010_account_external_identities", "external identity migration remains registered"),
+    SourceContains("Infrastructure/Postgres/ProductionCoreMigrations.cs", "account_external_identities", "external identity table remains defined"),
     SourceContains("Api/AdminEndpoints.cs", "MapGet(\"/moderation/tasks\"", "admin moderation route remains mapped"),
     SourceContains("Api/AdminEndpoints.cs", "MapGet(\"/audit-logs\"", "admin audit route remains mapped"),
     SourceContains("Api/OperationsEndpoints.cs", "MapGet(\"/readiness\"", "operations readiness route remains mapped"),
     SourceContains("Application/Providers/MediaProviders.cs", "interface IMediaProvider", "media provider port remains declared"),
     SourceContains("Application/Providers/PaymentProviders.cs", "interface IPaymentProvider", "payment provider port remains declared"),
+    SourceContains("Application/Providers/ExternalIdentityProviders.cs", "interface IWechatIdentityProvider", "WeChat identity provider port remains declared"),
+    SourceContains("Infrastructure/Providers/WeChat/WechatIdentityProvider.cs", "jscode2session", "WeChat provider uses code2session"),
     SourceContains("Infrastructure/Providers/Local/LocalMediaProvider.cs", "class LocalMediaProvider", "local media adapter remains declared"),
     SourceContains("Infrastructure/Providers/Local/LocalPaymentProvider.cs", "class LocalPaymentProvider", "local payment adapter remains declared"),
     SourceContains("Infrastructure/Providers/TencentVod/TencentVodOptions.cs", "TencentVod", "Tencent VOD options remain configuration-bound"),
@@ -110,6 +117,7 @@ var checks = new List<ContractCheck>
         "007_learning_entitlements_stats",
         "008_operations_outbox",
         "009_learning_progress_version_steps",
+        "010_account_external_identities",
     ]), "production core migrations remain ordered"),
 };
 

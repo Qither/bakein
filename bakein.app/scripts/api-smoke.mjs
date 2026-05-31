@@ -1,4 +1,5 @@
 const baseUrl = (process.env.TARO_APP_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:5164').replace(/\/$/, '')
+const shouldSmokeWechat = process.env.WECHAT_SMOKE === 'true'
 
 function assert(condition, message) {
   if (!condition) {
@@ -77,4 +78,33 @@ await request('/api/users/me/progress', {
   body: JSON.stringify({ courseId: firstCourse.id, stepId: step.id, completed: false }),
 })
 
-console.log(`API smoke passed against ${baseUrl}`)
+if (shouldSmokeWechat) {
+  const wechatName = process.env.WECHAT_SMOKE_NICKNAME || 'Bakein WeChat Smoke'
+  const wechatAvatarUrl =
+    process.env.WECHAT_SMOKE_AVATAR_URL || 'https://thirdwx.qlogo.cn/mmopen/vi_32/bakein-smoke-avatar/132'
+  const wechatCode = process.env.WECHAT_SMOKE_CODE || `bakein-smoke-${Date.now()}`
+
+  const wechatAuth = await request('/api/auth/wechat/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      code: wechatCode,
+      profile: {
+        nickName: wechatName,
+        avatarUrl: wechatAvatarUrl,
+      },
+    }),
+  })
+  assert(wechatAuth.token, 'WeChat registration should return a bearer token')
+
+  const wechatProfile = await request('/api/users/me/profile', {
+    headers: { Authorization: `Bearer ${wechatAuth.token}` },
+  })
+  assert(wechatProfile.account?.displayName === wechatName, 'WeChat account should use the selected nickname')
+  assert(wechatProfile.wechatIdentity?.displayName === wechatName, 'profile should include the selected WeChat nickname')
+  assert(
+    wechatProfile.wechatIdentity?.avatarUrl === wechatAvatarUrl,
+    'profile should include the selected WeChat avatar URL',
+  )
+}
+
+console.log(`API smoke passed against ${baseUrl}${shouldSmokeWechat ? ' with WeChat registration' : ''}`)

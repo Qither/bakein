@@ -12,6 +12,7 @@ public static class ProductionCoreMigrations
         new("007_learning_entitlements_stats", LearningEntitlementsStatsSql),
         new("008_operations_outbox", OperationsOutboxSql),
         new("009_learning_progress_version_steps", LearningProgressVersionStepsSql),
+        new("010_account_external_identities", AccountExternalIdentitiesSql),
     ];
 
     private const string IdentityRolesAuditSql =
@@ -411,5 +412,28 @@ public static class ProductionCoreMigrations
         """
         alter table learning_progress
           drop constraint if exists learning_progress_step_id_fkey;
+        """;
+
+    private const string AccountExternalIdentitiesSql =
+        """
+        create table if not exists account_external_identities (
+          provider text not null,
+          provider_subject text not null,
+          account_id uuid not null references accounts(id) on delete cascade,
+          union_subject text,
+          display_name text not null,
+          avatar_url text,
+          raw_profile jsonb not null default '{}'::jsonb,
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now(),
+          primary key (provider, provider_subject)
+        );
+
+        create index if not exists idx_account_external_identities_account
+          on account_external_identities(account_id, provider);
+
+        create unique index if not exists uq_account_external_identities_provider_union
+          on account_external_identities(provider, union_subject)
+          where union_subject is not null;
         """;
 }

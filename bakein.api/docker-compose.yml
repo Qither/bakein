@@ -34,6 +34,9 @@ services:
       Database__SeedDemoData: ${DATABASE_SEED_DEMO_DATA:-true}
       Media__Provider: ${MEDIA_PROVIDER:-local}
       Payment__Provider: ${PAYMENT_PROVIDER:-local}
+      WeChat__AppId: ${WECHAT_APP_ID:-}
+      WeChat__AppSecret: ${WECHAT_APP_SECRET:-}
+      WeChat__UseMockSession: ${WECHAT_USE_MOCK_SESSION:-false}
       Cors__AllowedOrigins__0: ${CORS_ORIGIN_0:-http://localhost:10086}
       Cors__AllowedOrigins__1: ${CORS_ORIGIN_1:-http://localhost:5173}
     ports:
